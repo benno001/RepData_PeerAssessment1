@@ -2,19 +2,207 @@
 
 
 ## Loading and preprocessing the data
+```{r download}
+if(!file.exists("activity.zip")){
+    download.file(
+        url = "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip", 
+        destfile = "activity.zip", 
+        method = "curl")}
+```
 
+Next, unzip the data.
 
+```{r unzip}
+unzip("activity.zip")
+``` 
+
+Then, read it.
+
+```{r read}
+activity <- read.table(
+    file = "activity.csv", 
+    header = TRUE, 
+    sep = ",")
+```
+
+Convert the dates and intervals to the correct format.
+
+```{r processing}
+activity$date <- as.Date(activity$date, 
+                         format = "%Y-%m-%d")
+activity$interval <- as.factor(activity$interval)
+```
 
 ## What is mean total number of steps taken per day?
 
+Compute steps per day and create a histogram.
+
+```{r histogram}
+stepSum <- aggregate(steps ~ date, activity, sum)  
+library(ggplot2)
+ggplot(stepSum, aes(x=steps)) + geom_histogram(binwidth = 400)
+```
+
+Compute overall mean and median
+```{r overall mean and median}
+mean(activity$steps, na.rm = TRUE)
+median(activity$steps, na.rm = TRUE)
+```
+
+Calculate mean and median per day
+
+```{r mean and median per day}
+stepMean <- aggregate(steps ~ date, activity, mean)
+stepMedian <- aggregate(steps ~ date, activity, median)
+
+library(lattice)
+xyplot(steps ~ date, 
+       type = "l", 
+       data = stepMean, 
+       xlab = "Date", 
+       ylab = "Average number of steps",
+       main = "Average number of steps per day")
+
+summary(stepMedian)
+```
 
 
 ## What is the average daily activity pattern?
 
+Calculate average amount of steps per interval.
 
+```{r average amount of steps per interval}
+intervalStepMean <- aggregate(steps ~ interval, activity, mean)
+intervalStepMean$interval <- as.factor(intervalStepMean$interval)
+```
+
+Set number of tick marks and create labels.
+```{r tick marks}
+tickMarks <- 10
+at <- seq(1, nrow(intervalStepMean), length.out=tickMarks)
+labels <- round(seq(000, 2400, length.out=tickMarks))
+```
+
+Create plot.
+
+```{r interval plot}
+library(lattice)
+a <- xyplot(steps ~ interval, 
+            type = "l", 
+            data = intervalStepMean, 
+            scales=list(x=list(at=at), 
+                        labels = labels),
+            xlab = "Interval",
+            ylab = "Average number of steps",
+            main = "Average number of steps per interval per day")
+print(a)
+```
+
+The interval with the highest average number of steps is calculated as follows:
+```{r highest avg. step interval}
+highestAvgSteps <- intervalStepMean[
+    intervalStepMean$steps == max(intervalStepMean$steps, na.rm = TRUE),
+    ]$interval
+highestAvgSteps
+```
 
 ## Imputing missing values
 
+Calculate number of missing values
 
+```{r}
+summary(activity$steps)[7]
+```
+
+### Strategy
+To fill in missing values in the dataset, the average for that day and the mean for that 5-minute interval will be combined.
+
+```{r}
+activityFilled <- activity
+activityFilled[which(is.na(activity)),]$steps <- intervalStepMean$steps
+
+stepSumFilled <- aggregate(steps ~ date, activityFilled, sum)  
+library(ggplot2)
+ggplot(stepSum, aes(x=steps)) + geom_histogram(binwidth = 400)
+
+```
+
+The filled mean was acquired as follows:
+```{r}
+stepMeanFilled <- aggregate(steps ~ date, activityFilled, mean)
+stepMedianFilled <- aggregate(steps ~ date, activityFilled, median)
+```
+
+A comparison of the mean and median of the filled and non-filled:
+```{r}
+summary(stepMeanFilled)
+summary(stepMean)
+
+```
+
+As can be observed, the mean and median are the same for both the filled and non-filled datasets.
+The 1st and 3rd quartiles do differ: the first quartile of the filled dataset starts lower and the 3rd quartile of the filled dataset starts higher. This indicates a higher spread.
+
+
+
+```{r}
+summary(stepMedianFilled)
+summary(stepMedian)
+```
+
+To illustrate the absence of significant difference in the average, a graph is constructed where the average of the filled and non-filled datasets are both represented.
+
+
+```{r tick marks filled}
+intervalStepMeanFilled <- aggregate(steps ~ interval, activity, mean)
+intervalStepMeanFilled$interval <- as.factor(intervalStepMean$interval)
+
+tickMarksFilled <- 10
+atFilled <- seq(1, nrow(intervalStepMeanFilled), length.out=tickMarksFilled)
+labelsFilled <- round(seq(000, 2400, length.out=tickMarksFilled))
+```
+
+```{r interval plot filled}
+library(lattice)
+library(latticeExtra)
+
+# Create second plot
+b <- xyplot(steps ~ interval, 
+            type = "l", 
+            data = intervalStepMeanFilled, 
+            scales=list(x=list(at=atFilled), 
+                        labels = labelsFilled),
+            xlab = "Interval",
+            ylab = "Average number of steps per day",
+            main = "Average number of steps per interval per day - comparison")
+
+# Overlay new plot
+a + as.layer(b)
+```
+
+As can be observed from the plot, the average steps per day per interval does not significantly deviate from the original.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+
+activityFilled$day <- FALSE
+activityFilled[
+    weekdays(activityFilled$date) == "Saturday" | weekdays(activityFilled$date) == "Sunday" , ]$day <- TRUE
+
+activityFilled[activityFilled$day == FALSE, ]$day <- "weekday"
+activityFilled[activityFilled$day == TRUE, ]$day <- "weekend"
+activityFilled$day <- as.factor(activityFilled$day)
+
+intervalStepMeanFilled <- aggregate(steps ~ interval + day, activityFilled, mean)
+
+xyplot(steps ~ interval | day, 
+       type = "l", 
+       data = intervalStepMeanFilled, 
+       scales=list(x=list(at=atFilled), 
+                   labels = labelsFilled),
+       xlab = "Interval",
+       ylab = "Average number of steps",
+       main = "Average number of steps per interval per weekday - comparison")
+
+```
