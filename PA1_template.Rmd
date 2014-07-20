@@ -2,6 +2,8 @@
 
 
 ## Loading and preprocessing the data
+
+Firstly, the data must be downloaded if it is not yet present.
 ```{r download}
 if(!file.exists("activity.zip")){
     download.file(
@@ -10,13 +12,13 @@ if(!file.exists("activity.zip")){
         method = "curl")}
 ```
 
-Next, unzip the data.
+Next, the data must be unzipped.
 
 ```{r unzip}
 unzip("activity.zip")
 ``` 
 
-Then, read it.
+Then, it can be read.
 
 ```{r read}
 activity <- read.table(
@@ -25,7 +27,7 @@ activity <- read.table(
     sep = ",")
 ```
 
-Convert the dates and intervals to the correct format.
+For proper analysis, the dates and intervals are converted to the correct format.
 
 ```{r processing}
 activity$date <- as.Date(activity$date, 
@@ -35,7 +37,7 @@ activity$interval <- as.factor(activity$interval)
 
 ## What is mean total number of steps taken per day?
 
-Compute steps per day and create a histogram.
+The steps per day are computed and a histogram is created:
 
 ```{r histogram}
 stepSum <- aggregate(steps ~ date, activity, sum)  
@@ -43,13 +45,13 @@ library(ggplot2)
 ggplot(stepSum, aes(x=steps)) + geom_histogram(binwidth = 400)
 ```
 
-Compute overall mean and median
+Then, the overall mean and median were computed.
 ```{r overall mean and median}
 mean(activity$steps, na.rm = TRUE)
 median(activity$steps, na.rm = TRUE)
 ```
 
-Calculate mean and median per day
+Next, the mean and median per day are calculated. The mean can be plotted.
 
 ```{r mean and median per day}
 stepMean <- aggregate(steps ~ date, activity, mean)
@@ -69,21 +71,21 @@ summary(stepMedian)
 
 ## What is the average daily activity pattern?
 
-Calculate average amount of steps per interval.
+To gain insight in the daily activity pattern, the average amount of steps per interval must me calculated firstly.
 
 ```{r average amount of steps per interval}
 intervalStepMean <- aggregate(steps ~ interval, activity, mean)
 intervalStepMean$interval <- as.factor(intervalStepMean$interval)
 ```
 
-Set number of tick marks and create labels.
+For a clean graph, the number of tick marks is set and labels are created.
 ```{r tick marks}
 tickMarks <- 10
 at <- seq(1, nrow(intervalStepMean), length.out=tickMarks)
 labels <- round(seq(000, 2400, length.out=tickMarks))
 ```
 
-Create plot.
+Then, a plot can be created.
 
 ```{r interval plot}
 library(lattice)
@@ -108,7 +110,7 @@ highestAvgSteps
 
 ## Imputing missing values
 
-Calculate number of missing values
+Firstly, the number of missing values must be found:
 
 ```{r}
 summary(activity$steps)[7]
@@ -184,18 +186,24 @@ As can be observed from the plot, the average steps per day per interval does no
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
+To construct the weekend/weekday comparison, the following code was used:
+
 ```{r}
 
 activityFilled$day <- FALSE
 activityFilled[
     weekdays(activityFilled$date) == "Saturday" | weekdays(activityFilled$date) == "Sunday" , ]$day <- TRUE
 
+# Create weekend/weekday column
 activityFilled[activityFilled$day == FALSE, ]$day <- "weekday"
 activityFilled[activityFilled$day == TRUE, ]$day <- "weekend"
 activityFilled$day <- as.factor(activityFilled$day)
 
+# Aggregate using new weekend/weekday column
 intervalStepMeanFilled <- aggregate(steps ~ interval + day, activityFilled, mean)
 
+
+# Create plot
 xyplot(steps ~ interval | day, 
        type = "l", 
        data = intervalStepMeanFilled, 
@@ -203,6 +211,9 @@ xyplot(steps ~ interval | day,
                    labels = labelsFilled),
        xlab = "Interval",
        ylab = "Average number of steps",
-       main = "Average number of steps per interval per weekday - comparison")
-
+       main = "Average number of steps per interval per weekday - comparison",
+       layout = c(1,2) # One column, two rows
+       )
 ```
+
+As can be observed from the plot, the average differs. On weekdays, the peak in the morning is higher and starts earlier, while in the weekend it is more equally distributed.
